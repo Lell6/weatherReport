@@ -14,6 +14,12 @@ class Weather {
         $this->pdo = $app->getContainer()->get('db');
     }
 
+    public function getWeatherApi($errors = null) {
+        $data = [$this->userLocations, $this->weatherReport, $errors];
+
+        return $data;
+    }
+
     public function getUserLocation($userIp) {
         if (empty($userIp)) {
             return false;

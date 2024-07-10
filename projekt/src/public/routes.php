@@ -13,6 +13,41 @@ $twig = Twig::create('templates/', ['cache' => false]);
 $app = AppFactory::create();
 $app->add(TwigMiddleware::create($app, $twig));
 
+$app->get('/weather/{city}', function (Request $request, Response $response, $args) use ($twig, $app) {
+    $weatherService = new Weather();
+
+    $data = $request->getParsedBody();
+    $city = $city = $args['city'];
+    
+    if (!$city) {
+        $errorContents = "Nie podano miasta";
+    }
+    $status = $weatherService->getWeatherReport($city);
+
+    if (!$status) {
+        $data =  $weatherService->getWeatherApi("error - weather");
+        $response->getBody()->write(json_encode($data));
+        
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+    }
+
+    /*if($city) {
+        $status = $weatherService->saveRecordToDatabase();
+    }*/
+
+    if (!$status) {
+        $data =  $weatherService->getWeatherApi("error - baza");
+        $response->getBody()->write(json_encode($data));
+        
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+    }
+
+    $data =  $weatherService->getWeatherApi();
+    $response->getBody()->write(json_encode($data));
+
+    return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+});
+
 $app->get('/weather', function (Request $request, Response $response, $args) use ($twig, $app) {
     $weatherService = new Weather();
     $weatherService->setDatabaseConnection($app);
@@ -30,7 +65,7 @@ $app->get('/weather', function (Request $request, Response $response, $args) use
         return $weatherService->printPage($request, $response, "Error - no weather");
     }
 
-    $status = $weatherService->saveRecordToDatabase();
+    //$status = $weatherService->saveRecordToDatabase();
 
     if (!$status) {
         return $weatherService->printPage($request, $response, "Error - no base");
@@ -55,9 +90,9 @@ $app->post('/weather', function (Request $request, Response $response, $args) us
         return $weatherService->printPage($request, $response, "Error - weather");
     }
 
-    if($city) {
+    /*if($city) {
         $status = $weatherService->saveRecordToDatabase();
-    }
+    }*/
 
     if (!$status) {
         return $weatherService->printPage($request, $response, "Error - base");
