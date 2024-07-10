@@ -7,66 +7,63 @@ use Psr\Http\Message\ResponseInterface as Response;
 
 require __DIR__ . '/../vendor/autoload.php';
 
+require 'config/Weather.php';
+
 $twig = Twig::create('templates/', ['cache' => false]);
 $app = AppFactory::create();
 $app->add(TwigMiddleware::create($app, $twig));
 
-$app->get('/', function (Request $request, Response $response) {
-    $response->getBody()->write("Hello, world!");
-    return $response;
+$app->get('/weather', function (Request $request, Response $response, $args) use ($twig, $app) {
+    $weatherService = new Weather();
+    $weatherService->setDatabaseConnection($app);
+
+    $userIp = "46.205.198.246";
+    $status = $weatherService->getUserLocation($userIp);
+
+    if (!$status) {
+        return $weatherService->printPage($request, $response, "Error - no user");
+    }
+
+    $status = $weatherService->getWeatherReport();
+
+    if (!$status) {
+        return $weatherService->printPage($request, $response, "Error - no weather");
+    }
+
+    $status = $weatherService->saveRecordToDatabase();
+
+    if (!$status) {
+        return $weatherService->printPage($request, $response, "Error - no base");
+    }
+
+    return $weatherService->printPage($request, $response);
 });
 
-$app->get('/weather', function (Request $request, Response $response, $args) use ($twig, $app) {
-    $pdo = $app->getContainer()->get('db');
+$app->post('/weather', function (Request $request, Response $response, $args) use ($twig, $app) {
+    $weatherService = new Weather();
+    $weatherService->setDatabaseConnection($app);
 
-    $userIp = $_SERVER['HTTP_CLIENT_IP'];
-    $userLocation = var_export(unserialize(file_get_contents('http://www.geoplugin.net/php.gp?ip='.$userIp)));
-
-    $userIp = $userLocation['geoplugin_request'];
-    $latitude = $userLocation['geoplugin_latitude'];
-    $longitude = $userLocation['geoplugin_longitude'];
+    $data = $request->getParsedBody();
+    $city = $data['city'];
     
-    $city = $userLocation['geoplugin_city'];
-    $apiKey = "ca662e857d69444d99b85300240907";
-    $numberOfDays = 1;
+    if (!$city) {
+        $errorContents = "Nie podano miasta";
+    }
+    $status = $weatherService->getWeatherReport($city);
 
-    $url = "https://api.weatherapi.com/v1/forecast.json?key={$apiKey}&q={$city}&days={$numberOfDays}&aqi=yes&alerts=no";    
-    $apiResponse = file_get_contents($url);
+    if (!$status) {
+        return $weatherService->printPage($request, $response, "Error - weather");
+    }
 
-    $weatherData = json_decode($apiResponse, true);
-    $date = $weatherData['current']['last_updated'];
-    $temperature = $weatherData['current']['temp_c'];
-    $condition = $weatherData['current']['condition']['text'];
-    $windType = $weatherData['current']['wind_dir'];
-    $windSpeed = $weatherData['current']['wind_mph'];
-    error_log("User IP: " . $userIp);
+    if($city) {
+        $status = $weatherService->saveRecordToDatabase();
+    }
 
-    $query = "INSERT 
-                INTO `weatherdata` (`userIp`, `city`, `date`, `temperature`, `weatherCondition`, `windType`, `windSpeed`)
-                VALUES (:ip, :city, :date, :temp, :cond, :wType, :wSpeed)";
+    if (!$status) {
+        return $weatherService->printPage($request, $response, "Error - base");
+    }
 
-    $query = $pdo->prepare($query);
-    $query->execute([
-        ':ip' => $userIp,
-        ':city' => $city,
-        ':date' => $date,
-        ':temp' => $temperature,
-        ':cond' => $condition,
-        ':wType' => $windType,
-        ':wSpeed' => $windSpeed
-    ]);
-
-    $view = Twig::fromRequest($request);
-    return $view->render($response, 'weatherReport.html', [
-        'cityName' => $city, 
-        'date' => $date, 
-        'temperature' => $temperature, 
-        'condition' => $condition,
-        'windType' => $windType,
-        'windSpeed' => $windSpeed,
-        'longitude' => $longitude,
-        'latitude' => $latitude
-    ]);
+    return $weatherService->printPage($request, $response, $errorContents);
 });
 
 return $app;
