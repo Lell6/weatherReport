@@ -1,0 +1,17 @@
+{
+    "require": {
+        "slim/slim": "^4.14",
+        "slim/psr7": "^1.7",
+        "slim/twig-view": "^3.4",
+        "geocoder-php/google-maps-provider": "^4.7",
+        "php-http/curl-client": "^2.3",
+        "nyholm/psr7": "^1.8",
+        "symfony/http-client": "^7.1",
+        "php-di/php-di": "^7.0"
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    }
+}
