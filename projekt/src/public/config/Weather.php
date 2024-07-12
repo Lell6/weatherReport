@@ -7,7 +7,7 @@ class Weather {
     private $pdo;
     private $userIp;
     private $userLocation;
-    private $city = "London";
+    private $city;
     public $weatherReport;
 
     public function setDatabaseConnection($app) {
@@ -15,17 +15,33 @@ class Weather {
     }
 
     public function getWeatherApi($errors = null) {
-        $data = [$this->userLocations, $this->weatherReport, $errors];
+        $data = [
+            'location' => $this->userLocation, 
+            'weatherReport' => $this->weatherReport, 
+            'errors' => $errors
+        ];
 
         return $data;
     }
 
-    public function getUserLocation($userIp) {
-        if (empty($userIp)) {
+    public function getUserIpAddress() {
+        if(!empty($_SERVER['HTTP_CLIENT_IP'])) {
+            $this->userIp = $_SERVER['HTTP_CLIENT_IP'];  
+        }
+        elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $this->userIp = $_SERVER['HTTP_X_FORWARDED_FOR'];  
+        }
+        else{  
+            $this->userIp = "46.205.198.246";  
+        }
+    }
+
+    public function getUserLocation() {
+        if (empty($this->userIp)) {
             return false;
         }
 
-        $location = file_get_contents('https://api.ip2location.io/?key=64B3CBADF317CD0ED2E49732490A9E10&ip='.$userIp);
+        $location = file_get_contents('https://api.ip2location.io/?key=64B3CBADF317CD0ED2E49732490A9E10&ip='.$this->userIp);
         $location = json_decode($location, true);
 
         $this->userLocation = [
@@ -34,7 +50,6 @@ class Weather {
             'latitude' => $location['latitude']
         ];
 
-        $this->userIp = $userIp;
         $this->city = $this->userLocation['city'];
         return true;
     }
@@ -44,10 +59,9 @@ class Weather {
             $this->city = $city;
         }
 
-        $apiKey = "ca662e857d69444d99b85300240907";
-        $numberOfDays = 1;
+        $apiKey = "a265896dac8a519de32f3924f10dde01";
 
-        $url = "https://api.weatherapi.com/v1/forecast.json?key={$apiKey}&q={$this->city}&days={$numberOfDays}&aqi=yes&alerts=no";    
+        $url = "https://api.openweathermap.org/data/2.5/weather?q={$this->city}&appid={$apiKey}&units=metric";    
         $weatherData = file_get_contents($url);    
         $weatherData = json_decode($weatherData, true);
         
@@ -56,25 +70,22 @@ class Weather {
         }
     
         $this->weatherReport = [
-            'date' => $weatherData['current']['last_updated'],
-            'temperature' => $weatherData['current']['temp_c'],
-            'condition' => $condition = $weatherData['current']['condition']['text'],
-            'windType' => $weatherData['current']['wind_dir'],
-            'windSpeed' => $weatherData['current']['wind_mph']
+            'temperature' => $weatherData['main']['temp'],
+            'shortDescr' => $weatherData['weather'][0]['main'],
+            'description' => $weatherData['weather'][0]['description'],
+            'windType' => $weatherData['wind']['deg'],
+            'windSpeed' => $weatherData['wind']['speed']
         ];
 
-        if ($city) {
-            $this->city = $weatherData['location']['name'];
-            $this->userLocation['longitude'] = $weatherData['location']['lon'];
-            $this->userLocation['latitude'] = $weatherData['location']['lat'];
-        }
+        $this->userLocation['longitude'] = $weatherData['coord']['lon'];
+        $this->userLocation['latitude'] = $weatherData['coord']['lat'];
 
         return true;
     }
 
     public function saveRecordToDatabase() {
         $query = "INSERT 
-        INTO `weatherdata` (`userIp`, `city`, `date`, `temperature`, `weatherCondition`, `windType`, `windSpeed`)
+        INTO `weatherdata` (`userIp`, `city`, `date`, `temperature`, `weatherdescription`, `windType`, `windSpeed`)
         VALUES (:ip, :city, :date, :temp, :cond, :wType, :wSpeed)";
     
         $query = $this->pdo->prepare($query);
@@ -83,7 +94,7 @@ class Weather {
             ':city' => $this->city,
             ':date' => $this->weatherReport['date'],
             ':temp' => $this->weatherReport['temperature'],
-            ':cond' => $this->weatherReport['condition'],
+            ':cond' => $this->weatherReport['description'],
             ':wType' => $this->weatherReport['windType'],
             ':wSpeed' => $this->weatherReport['windSpeed']
         ]);
@@ -98,7 +109,7 @@ class Weather {
             'cityName' => $this->city, 
             'date' => $this->weatherReport['date'], 
             'temperature' => $this->weatherReport['temperature'], 
-            'condition' => $this->weatherReport['condition'],
+            'description' => $this->weatherReport['description'],
             'windType' => $this->weatherReport['windType'],
             'windSpeed' => $this->weatherReport['windSpeed'],
             'longitude' => $this->userLocation['longitude'],
