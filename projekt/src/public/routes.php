@@ -14,6 +14,7 @@ $dotenv->load();
 require 'config/Weather.php';
 require 'config/UserIp.php';
 require 'config/UserLocation.php';
+require 'Database.php';
 
 $twig = Twig::create('templates/', ['cache' => false]);
 $app = AppFactory::create();
@@ -27,7 +28,19 @@ $app->get('/weather/[{city}]', function (Request $request, Response $response, $
 
     $location->setUserLocationByCity($city);
     $weather->setWeatherReport($location->getUserLocation());
-    $data = $weather->getWeatherReport();
+
+    if ($location->getUserLocation()) {
+        $data = [
+            'location' => $location->getUserLocation(),
+            'weather' => $weather->getWeatherReport()
+        ];
+
+        $database = new Database();
+        $database->saveRecordToDatabase($data);
+    }
+    else {
+        $data = $weather->getWeatherReport();
+    }
 
     $response->getBody()->write(json_encode($data));
     return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
@@ -37,7 +50,6 @@ $app->get('/weather', function (Request $request, Response $response, $args) use
     $ip = new UserIp();
     $location = new UserLocation();
     $weather = new Weather();
-    //$weatherService->setDatabaseConnection($app);
 
     $ip->setUserIp();
     $location->setUserLocationByIp($ip->getUserIp());
@@ -46,7 +58,15 @@ $app->get('/weather', function (Request $request, Response $response, $args) use
     $weatherReport = $weather->getWeatherReport();
     $userLocation = $location->getUserLocation();
 
-    //$status = $weatherService->saveRecordToDatabase();
+    if ($userLocation) {
+        $data = [
+            'location' => $location->getUserLocation(),
+            'weather' => $weather->getWeatherReport()
+        ];
+
+        $database = new Database();
+        $database->saveRecordToDatabase($data);
+    }
 
     $view = Twig::fromRequest($request);
     return $view->render($response, 'weatherReport.html', [

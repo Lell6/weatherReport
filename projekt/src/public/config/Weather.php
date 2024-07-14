@@ -16,7 +16,7 @@ class Weather {
             $lon = $location['longitude'];
             $lat = $location['latitude'];
 
-            $url = htmlspecialchars_decode("{$_ENV['weather_api_url']}?lat={$lat}&lon={$lon}&cnt=1&appid={$_ENV['weather_api_key']}");
+            $url = htmlspecialchars_decode("{$_ENV['weather_api_url']}?lat={$lat}&lon={$lon}&cnt=1&appid={$_ENV['weather_api_key']}&units=metric");
         }
         else {
             $this->errors = [
@@ -30,7 +30,6 @@ class Weather {
         $weatherData = json_decode($weatherData, true);
 
         $this->weatherReport = [
-            'city' => $weatherData['name'],
             'temperature' => $weatherData['main']['temp'],
             'shortDescr' => $weatherData['weather'][0]['main'],
             'description' => $weatherData['weather'][0]['description'],

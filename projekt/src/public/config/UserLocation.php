@@ -11,6 +11,7 @@ class UserLocation {
         $location = json_decode($location, true);
     
         $this->userLocation = [
+            'ip' => $userIp,
             'city' => $location['city_name'],
             'longitude' => $location['longitude'],
             'latitude' => $location['latitude']
@@ -41,12 +42,14 @@ class UserLocation {
 
         $this->userLocation = [
             'city' => $location[0]['name'],
-            'longitude' => $location[0]['lon'],
-            'latitude' => $location[0]['lat']
+            'longitude' => number_format($location[0]['lon'], 3),
+            'latitude' => number_format($location[0]['lat'], 3)
         ];
     }
 
     public function getUserLocation() {
-        return $this->userLocation;
+        if ($this->userLocation) {
+            return $this->userLocation;
+        }
     }
 }
