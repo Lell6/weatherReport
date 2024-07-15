@@ -15,13 +15,27 @@ require 'config/Weather.php';
 require 'config/UserIp.php';
 require 'config/UserLocation.php';
 require 'Database.php';
+require '../doctrine-config.php';
 
 $twig = Twig::create('templates/', ['cache' => false]);
 $app = AppFactory::create();
 $app->add(TwigMiddleware::create($app, $twig));
 
-$app->get('/weather/[{city}]', function (Request $request, Response $response, $args) use ($twig, $app) {
-    $city = $args['city'] ?? null;
+$app->get('/weather', function (Request $request, Response $response, $args) use ($twig, $app, $entityManager) {
+    $city = $request->getQueryParams()['city'] ?? null;
+    $key = $request->getQueryParams()['key'] ?? null;
+
+    $database = new Database($entityManager);
+    $user = $database->findUserByToken($key);
+
+    if (!$user) {
+        $data = [
+            'message' => "Incorrect key"
+        ];
+  
+        $response->getBody()->write(json_encode($data));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+    }
 
     $location = new UserLocation();
     $weather = new Weather();
@@ -35,7 +49,6 @@ $app->get('/weather/[{city}]', function (Request $request, Response $response, $
             'weather' => $weather->getWeatherReport()
         ];
 
-        $database = new Database();
         $database->saveRecordToDatabase($data);
     }
     else {
@@ -46,7 +59,7 @@ $app->get('/weather/[{city}]', function (Request $request, Response $response, $
     return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
 });
 
-$app->get('/weather', function (Request $request, Response $response, $args) use ($twig, $app) {
+$app->get('/weather/page', function (Request $request, Response $response, $args) use ($twig, $app, $entityManager) {
     $ip = new UserIp();
     $location = new UserLocation();
     $weather = new Weather();
@@ -60,11 +73,11 @@ $app->get('/weather', function (Request $request, Response $response, $args) use
 
     if ($userLocation) {
         $data = [
-            'location' => $location->getUserLocation(),
-            'weather' => $weather->getWeatherReport()
+            'location' => $userLocation,
+            'weather' => $weatherReport
         ];
 
-        $database = new Database();
+        $database = new Database($entityManager);
         $database->saveRecordToDatabase($data);
     }
 
@@ -78,6 +91,38 @@ $app->get('/weather', function (Request $request, Response $response, $args) use
         'longitude' => $userLocation['longitude'],
         'latitude' => $userLocation['latitude']
     ]);
+});
+
+$app->get('/user', function (Request $request, Response $response, $args) use ($twig, $app) {
+    $view = Twig::fromRequest($request);
+    return $view->render($response, 'loginCreation.html', []);
+});
+
+$app->post('/create', function (Request $request, Response $response, $args) use ($twig, $app, $entityManager) {
+    $data = $request->getParsedBody();
+
+    $login = $data['login'];
+    $password = $data['password'];
+    $passwordRepeat = $data['passwordRepeat'];
+    $view = Twig::fromRequest($request);
+
+    if ($password != $passwordRepeat) {
+        return $view->render($response, 'loginCreation.html', [
+            'errors' => 'Passwords must repeat'
+        ]);
+    }
+
+    $database = new Database($entityManager);
+    $user = $database->findUserByLogin($login);
+    
+    if ($user) {
+        return $view->render($response, 'loginCreation.html', [
+            'errors' => 'User already exists'
+        ]);
+    }
+    
+    $database->createUser($data);
+    return $view->render($response, 'loginCreation.html', []);
 });
 
 return $app;

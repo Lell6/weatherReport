@@ -37,7 +37,7 @@ class WeatherRecords {
     private ?string $windSpeed = null;
 
     function __construct($record) {
-        $this->userIp = '0.0.0.0';
+        $this->userIp = (isset($record['location']['ip'])) ? $record['location']['ip'] : '0.0.0.0';
         $this->userCity = $record['location']['city'];
         $this->longitude = $record['location']['longitude'];
         $this->latitude = $record['location']['latitude'];
