@@ -23,4 +23,16 @@ class Users {
         $this->password = password_hash($data['password'], PASSWORD_DEFAULT);
         $this->token = bin2hex(random_bytes(16));
     }
+
+    public function getPassword() {
+        return $this->password;
+    }
+
+    public function getToken() {
+        return $this->token;
+    }
+
+    public function getLogin() {
+        return $this->login;
+    }
 }

@@ -93,12 +93,12 @@ $app->get('/weather/page', function (Request $request, Response $response, $args
     ]);
 });
 
-$app->get('/user', function (Request $request, Response $response, $args) use ($twig, $app) {
+$app->get('/register', function (Request $request, Response $response, $args) use ($twig, $app) {
     $view = Twig::fromRequest($request);
-    return $view->render($response, 'loginCreation.html', []);
+    return $view->render($response, 'register.html', []);
 });
 
-$app->post('/create', function (Request $request, Response $response, $args) use ($twig, $app, $entityManager) {
+$app->post('/register', function (Request $request, Response $response, $args) use ($twig, $app, $entityManager) {
     $data = $request->getParsedBody();
 
     $login = $data['login'];
@@ -107,7 +107,7 @@ $app->post('/create', function (Request $request, Response $response, $args) use
     $view = Twig::fromRequest($request);
 
     if ($password != $passwordRepeat) {
-        return $view->render($response, 'loginCreation.html', [
+        return $view->render($response, 'register.html', [
             'errors' => 'Passwords must repeat'
         ]);
     }
@@ -116,13 +116,45 @@ $app->post('/create', function (Request $request, Response $response, $args) use
     $user = $database->findUserByLogin($login);
     
     if ($user) {
-        return $view->render($response, 'loginCreation.html', [
+        return $view->render($response, 'register.html', [
             'errors' => 'User already exists'
         ]);
     }
     
     $database->createUser($data);
-    return $view->render($response, 'loginCreation.html', []);
+    return $view->render($response, 'register.html', []);
+});
+
+$app->get('/login', function (Request $request, Response $response, $args) use ($twig, $app) {
+    $view = Twig::fromRequest($request);
+    return $view->render($response, 'login.html', []);
+});
+
+$app->post('/login', function (Request $request, Response $response, $args) use ($twig, $app, $entityManager) {
+    $view = Twig::fromRequest($request);
+    $data = $request->getParsedBody();
+    $database = new Database($entityManager);
+
+    $user = $database->findUserByLogin($data['login']);
+
+    if (!$user) {
+        return $view->render($response, 'login.html', [
+            'errors' => 'Incorrect login or password'
+        ]);
+    }
+
+    $password = $user->getPassword();
+    if (!password_verify($data['password'], $password)) {
+        return $view->render($response, 'login.html', [
+            'errors' => 'Incorrect login or password'
+        ]);
+    }
+    else {
+        return $view->render($response, 'userData.html', [
+            'login' => $data['login'],
+            'key' => $user->getToken()
+        ]);
+    }
 });
 
 return $app;
